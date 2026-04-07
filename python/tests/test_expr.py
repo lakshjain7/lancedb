@@ -172,6 +172,20 @@ class TestExprOperators:
         assert isinstance(e, Expr)
         assert e.to_sql() == "(name = 'alice')"
 
+    def test_reflexive_comparisons(self):
+        # 10 < col("age") swaps to col("age") > 10
+        assert (10 < col("age")).to_sql() == "(age > 10)"
+        assert (10 <= col("age")).to_sql() == "(age >= 10)"
+        assert (10 > col("age")).to_sql() == "(age < 10)"
+        assert (10 >= col("age")).to_sql() == "(age <= 10)"
+        assert (10 == col("age")).to_sql() == "(age = 10)"
+        assert (10 != col("age")).to_sql() == "(age <> 10)"
+
+    def test_reflexive_logical(self):
+        # True & Expr calls Expr.__rand__(True)
+        assert (True & (col("age") > 18)).to_sql() == "(true AND (age > 18))"
+        assert (False | (col("age") > 18)).to_sql() == "(false OR (age > 18))"
+
 
 class TestExprStringMethods:
     def test_lower(self):

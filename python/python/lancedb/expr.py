@@ -116,27 +116,6 @@ class Expr:
         """Greater than or equal to (``col("x") >= 1``)."""
         return Expr(self._inner.gte(_coerce(other)._inner))
 
-    # Reverse comparison operators to allow literals on the left side
-    # e.g., 1 == col("x"), 10 < col("age")
-
-    def __req__(self, other: ExprLike) -> "Expr":
-        return Expr(_coerce(other)._inner.eq(self._inner))
-
-    def __rne__(self, other: ExprLike) -> "Expr":
-        return Expr(_coerce(other)._inner.ne(self._inner))
-
-    def __rlt__(self, other: ExprLike) -> "Expr":
-        return Expr(_coerce(other)._inner.lt(self._inner))
-
-    def __rle__(self, other: ExprLike) -> "Expr":
-        return Expr(_coerce(other)._inner.lte(self._inner))
-
-    def __rgt__(self, other: ExprLike) -> "Expr":
-        return Expr(_coerce(other)._inner.gt(self._inner))
-
-    def __rge__(self, other: ExprLike) -> "Expr":
-        return Expr(_coerce(other)._inner.gte(self._inner))
-
     # ── logical ──────────────────────────────────────────────────────────────
 
     def __and__(self, other: "Expr") -> "Expr":
@@ -314,11 +293,11 @@ def lit(value: Union[bool, int, float, str, date, datetime, bytes, Decimal]) -> 
     Expr((created_at = '2024-01-01'))
 
     >>> col("data") == lit(b"\xff\xfe")
-    Expr((data = '0xfffe'))
+    Expr((data = X'FFFE'))
 
     >>> from decimal import Decimal
     >>> col("price") > lit(Decimal("9.99"))
-    Expr((price > 9.99))
+    Expr((price > '9.99'))
 
     """
 
