@@ -7,7 +7,7 @@ import pytest
 import pyarrow as pa
 import lancedb
 from lancedb.expr import Expr, col, lit, func
-from datetime import date, datetime
+from datetime import date, datetime, timezone, timedelta
 from decimal import Decimal
 
 
@@ -62,7 +62,6 @@ class TestExprConstruction:
 
     def test_lit_datetime_tz(self):
         # Timezone-aware datetime
-        from datetime import timezone, timedelta
         tz = timezone(timedelta(hours=5))
         dt = datetime(2024, 1, 1, 10, 0, tzinfo=tz)
         e = lit(dt)
@@ -458,3 +457,69 @@ class TestColNamingIntegration:
         )
         assert "upper_name" in result.schema.names
         assert sorted(result["upper_name"].to_pylist()) == ["ALICE", "BOB", "CHARLIE"]
+
+
+@pytest.fixture
+def type_check_table(tmp_path):
+    """Fixture that creates a table with Date32, Decimal128, and Binary columns."""
+    db = lancedb.connect(str(tmp_path))
+    schema = pa.schema(
+        [
+            ("date", pa.date32()),
+            ("decimal", pa.decimal128(10, 2)),
+            ("binary", pa.binary()),
+        ]
+    )
+    data = pa.table(
+        {
+            "date": [date(2024, 1, 1), date(2024, 1, 2)],
+            "decimal": [Decimal("10.50"), Decimal("20.75")],
+            "binary": [b"\x01", b"\x02"],
+        },
+        schema=schema,
+    )
+    return db.create_table("extended_types", data)
+
+
+class TestExtendedTypeIntegration:
+    """Integration tests verifying that extended types work correctly in filters."""
+
+    def test_date_integration(self, type_check_table):
+        """Verify that Date32 literals are correctly cast and filtered by the engine."""
+        result = (
+            type_check_table.search()
+            .where(col("date") == lit(date(2024, 1, 1)))
+            .to_arrow()
+        )
+        assert result.num_rows == 1
+        assert result["date"][0].as_py() == date(2024, 1, 1)
+
+    def test_decimal_integration(self, type_check_table):
+        """Verify that high-precision Decimal literals avoid float-rounding issues."""
+        # Use the specific "one point off" example from reviewer feedback
+        # to prove no float rounding is occurring.
+        val1 = Decimal("1.234567890123456789")
+        val2 = Decimal("1.234567890123456790")
+
+        # Create a tiny table with these exact values to test the casting path
+        db = lancedb.connect(
+            str(type_check_table.uri).replace("extended_types", "precision_test")
+        )
+        schema = pa.schema([("val", pa.decimal128(38, 18))])
+        table = db.create_table(
+            "precision_test",
+            pa.table({"val": [val1, val2]}, schema=schema),
+            mode="overwrite",
+        )
+
+        result = table.search().where(col("val") < lit(val2)).to_arrow()
+        assert result.num_rows == 1
+        assert result["val"][0].as_py() == val1
+
+    def test_binary_integration(self, type_check_table):
+        """Verify that raw bytes literals match Binary columns correctly."""
+        result = (
+            type_check_table.search().where(col("binary") == lit(b"\x02")).to_arrow()
+        )
+        assert result.num_rows == 1
+        assert result["binary"][0].as_py() == b"\x02"

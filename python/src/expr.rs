@@ -7,6 +7,8 @@
 //! build type-safe filter / projection expressions that map directly to
 //! DataFusion [`Expr`] nodes, bypassing SQL string parsing.
 
+use std::ops::{Add, Div, Mul, Not, Sub};
+
 use arrow::{datatypes::DataType, pyarrow::PyArrowType};
 use lancedb::expr::{DfExpr, col as ldb_col, contains, expr_cast, lit as df_lit, lower, upper};
 use pyo3::{Bound, PyAny, PyResult, exceptions::PyValueError, prelude::*, pyfunction};
@@ -59,30 +61,30 @@ impl PyExpr {
         Self(self.0.clone().or(other.0.clone()))
     }
 
+    /// Logical NOT.
     fn not_(&self) -> Self {
-        use std::ops::Not;
         Self(self.0.clone().not())
     }
 
     // ── arithmetic ───────────────────────────────────────────────────────────
 
+    /// Add expressions.
     fn add(&self, other: &Self) -> Self {
-        use std::ops::Add;
         Self(self.0.clone().add(other.0.clone()))
     }
 
+    /// Subtract expressions.
     fn sub(&self, other: &Self) -> Self {
-        use std::ops::Sub;
         Self(self.0.clone().sub(other.0.clone()))
     }
 
+    /// Multiply expressions.
     fn mul(&self, other: &Self) -> Self {
-        use std::ops::Mul;
         Self(self.0.clone().mul(other.0.clone()))
     }
 
+    /// Divide expressions.
     fn div(&self, other: &Self) -> Self {
-        use std::ops::Div;
         Self(self.0.clone().div(other.0.clone()))
     }
 
@@ -168,7 +170,7 @@ pub fn expr_lit(value: Bound<'_, PyAny>) -> PyResult<PyExpr> {
         let s = value.call_method0("__str__")?.extract::<String>()?;
         // DataFusion's lit(String) creates a Utf8 literal.
         // To get a true Decimal128, we'd need to parse it and know precision/scale.
-        // However, for now, passing it as a string that can be cast is the safest 
+        // However, for now, passing it as a string that can be cast is the safest
         // way to avoid float precision loss during the FFI transition.
         return Ok(PyExpr(df_lit(s)));
     }

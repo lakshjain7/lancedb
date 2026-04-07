@@ -294,9 +294,7 @@ def col(name: str) -> Expr:
     return Expr(expr_col(name))
 
 
-def lit(
-    value: Union[bool, int, float, str, date, datetime, bytes, Decimal]
-) -> Expr:
+def lit(value: Union[bool, int, float, str, date, datetime, bytes, Decimal]) -> Expr:
     """Create a literal (constant) value expression.
 
     Parameters
@@ -315,11 +313,9 @@ def lit(
     >>> col("created_at") == lit(date(2024, 1, 1))
     Expr((created_at = '2024-01-01'))
 
-    >>> # Binary literals support raw bytes (no UTF-8 requirement)
     >>> col("data") == lit(b"\xff\xfe")
     Expr((data = '0xfffe'))
 
-    >>> # Decimal literals preserve full precision (no float rounding)
     >>> from decimal import Decimal
     >>> col("price") > lit(Decimal("9.99"))
     Expr((price > 9.99))
@@ -327,10 +323,7 @@ def lit(
     """
 
     # Normalize dates/datetimes to ISO strings for stable SQL parsing
-    if isinstance(value, datetime):
-        value = value.isoformat()
-
-    elif isinstance(value, date):
+    if isinstance(value, (datetime, date)):
         value = value.isoformat()
 
     return Expr(expr_lit(value))
