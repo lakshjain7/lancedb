@@ -292,7 +292,7 @@ def lit(value: Union[bool, int, float, str, date, datetime, bytes, Decimal]) -> 
     >>> col("created_at") == lit(date(2024, 1, 1))
     Expr((created_at = '2024-01-01'))
 
-    >>> col("data") == lit(b"\xff\xfe")
+    >>> col("data") == lit(bytes("\xff\xfe", "utf-8"))
     Expr((data = X'FFFE'))
 
     >>> from decimal import Decimal
