@@ -67,7 +67,7 @@ def _coerce(value: "ExprLike") -> "Expr":
 
 
 # Type alias used in annotations.
-ExprLike = Union["Expr", bool, int, float, str, date, datetime, bytes, Decimal]
+ExprLike = Union["Expr", bool, int, float, str, date, datetime, Decimal]
 
 
 class Expr:
@@ -273,14 +273,14 @@ def col(name: str) -> Expr:
     return Expr(expr_col(name))
 
 
-def lit(value: Union[bool, int, float, str, date, datetime, bytes, Decimal]) -> Expr:
+def lit(value: Union[bool, int, float, str, date, datetime, Decimal]) -> Expr:
     """Create a literal (constant) value expression.
 
     Parameters
     ----------
     value:
         A Python ``bool``, ``int``, ``float``, ``str``, ``date``,
-        ``datetime``, ``bytes``, or ``Decimal``.
+        ``datetime``, or ``Decimal``.
 
     Examples
     --------
@@ -292,8 +292,6 @@ def lit(value: Union[bool, int, float, str, date, datetime, bytes, Decimal]) -> 
     >>> col("created_at") == lit(date(2024, 1, 1))
     Expr((created_at = '2024-01-01'))
 
-    >>> col("data") == lit(bytes("\xff\xfe", "utf-8"))
-    Expr((data = X'FFFE'))
 
     >>> from decimal import Decimal
     >>> col("price") > lit(Decimal("9.99"))
