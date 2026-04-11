@@ -465,3 +465,68 @@ class TestColNamingIntegration:
         )
         assert "upper_name" in result.schema.names
         assert sorted(result["upper_name"].to_pylist()) == ["ALICE", "BOB", "CHARLIE"]
+
+
+@pytest.fixture
+def type_check_table(tmp_path):
+    """Fixture that creates a table with Date32 and Decimal128 columns."""
+    db = lancedb.connect(str(tmp_path))
+    schema = pa.schema(
+        [
+            ("date", pa.date32()),
+            ("decimal", pa.decimal128(10, 2)),
+            ("binary", pa.binary()),
+        ]
+    )
+    data = pa.table(
+        {
+            "date": [date(2024, 1, 1), date(2024, 1, 2)],
+            "decimal": [Decimal("10.50"), Decimal("20.75")],
+            "binary": [b"\x01", b"\x02"],
+        },
+        schema=schema,
+    )
+    return db.create_table("extended_types", data)
+
+
+class TestExtendedTypeIntegration:
+    """Integration tests verifying that typed literals work correctly in filters."""
+
+    def test_date_integration(self, type_check_table):
+        """Verify that Date32 literals are correctly parsed and filtered."""
+        result = (
+            type_check_table.search()
+            .where(col("date") == lit(date(2024, 1, 1)))
+            .to_arrow()
+        )
+        assert result.num_rows == 1
+        assert result["date"][0].as_py() == date(2024, 1, 1)
+
+    def test_decimal_integration(self, type_check_table):
+        """Verify that high-precision Decimal literals avoid float-rounding issues."""
+        val1 = Decimal("1.234567890123456789")
+        val2 = Decimal("1.234567890123456790")
+
+        db = lancedb.connect(
+            str(type_check_table.uri).replace("extended_types", "precision_test")
+        )
+        schema = pa.schema([("val", pa.decimal128(38, 18))])
+        table = db.create_table(
+            "precision_test",
+            pa.table({"val": [val1, val2]}, schema=schema),
+            mode="overwrite",
+        )
+
+        # This will only work if lit(val2) is a true Decimal128(38, 18)
+        # or if DataFusion can cast it from Decimal128(19, 18)
+        result = table.search().where(col("val") < lit(val2)).to_arrow()
+        assert result.num_rows == 1
+        assert result["val"][0].as_py() == val1
+
+    def test_binary_integration(self, type_check_table):
+        """Verify that Binary literals are correctly filtered."""
+        result = (
+            type_check_table.search().where(col("binary") == lit(b"\x01")).to_arrow()
+        )
+        assert result.num_rows == 1
+        assert result["binary"][0].as_py() == b"\x01"

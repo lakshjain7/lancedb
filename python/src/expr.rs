@@ -10,8 +10,9 @@
 use std::ops::{Add, Div, Mul, Not, Sub};
 
 use arrow::{datatypes::DataType, pyarrow::PyArrowType};
+use datafusion_common::ScalarValue;
 use lancedb::expr::{DfExpr, col as ldb_col, contains, expr_cast, lit as df_lit, lower, upper};
-use pyo3::{Bound, PyAny, PyResult, exceptions::PyValueError, prelude::*, pyfunction};
+use pyo3::{Bound, PyAny, PyResult, exceptions::PyValueError, prelude::*, pyfunction, types::{PyDate, PyDateTime}};
 
 /// A type-safe DataFusion expression.
 ///
@@ -159,22 +160,60 @@ pub fn expr_lit(value: Bound<'_, PyAny>) -> PyResult<PyExpr> {
     if let Ok(s) = value.extract::<String>() {
         return Ok(PyExpr(df_lit(s)));
     }
-    // Handle Decimal by converting to string to preserve precision
-    // We check if it's a decimal.Decimal instance
+    if let Ok(b) = value.extract::<Vec<u8>>() {
+        return Ok(PyExpr(df_lit(ScalarValue::Binary(Some(b)))));
+    }
+
+    if let Ok(dt) = value.downcast::<PyDateTime>() {
+        let ts: f64 = dt.call_method0("timestamp")?.extract()?;
+        let micros = (ts * 1_000_000.0).round() as i64;
+        return Ok(PyExpr(df_lit(ScalarValue::TimestampMicrosecond(
+            Some(micros),
+            None,
+        ))));
+    }
+    if let Ok(d) = value.downcast::<PyDate>() {
+        let ordinal: i32 = d.call_method0("toordinal")?.extract()?;
+        let days = ordinal - 719163; // Unix epoch is 1970-01-01
+        return Ok(PyExpr(df_lit(ScalarValue::Date32(Some(days)))));
+    }
+
     let type_name = value.get_type().name()?;
     if type_name == "Decimal" {
         let s = value.call_method0("__str__")?.extract::<String>()?;
-        // DataFusion's lit(String) creates a Utf8 literal.
-        // To get a true Decimal128, we'd need to parse it and know precision/scale.
-        // However, for now, passing it as a string that can be cast is the safest
-        // way to avoid float precision loss during the FFI transition.
-        return Ok(PyExpr(df_lit(s)));
+        // Parse decimal string into i128 and scale
+        let (val, precision, scale) = parse_decimal(&s)?;
+        return Ok(PyExpr(df_lit(ScalarValue::Decimal128(
+            Some(val),
+            precision,
+            scale,
+        ))));
     }
 
     Err(PyValueError::new_err(format!(
-        "unsupported literal type: {}. Supported: bool, int, float, str, Decimal",
+        "unsupported literal type: {}. Supported: bool, int, float, str, bytes, date, datetime, Decimal",
         type_name
     )))
+}
+
+fn parse_decimal(s: &str) -> PyResult<(i128, u8, i8)> {
+    let s = s.trim();
+    let dot_pos = s.find('.');
+    let scale = if let Some(pos) = dot_pos {
+        (s.len() - pos - 1) as i8
+    } else {
+        0
+    };
+
+    let digits = s.replace('.', "");
+    let val = digits
+        .parse::<i128>()
+        .map_err(|e| PyValueError::new_err(format!("failed to parse decimal digits: {}", e)))?;
+
+    // Precision is total number of digits
+    let precision = digits.trim_start_matches('-').len() as u8;
+
+    Ok((val, precision, scale))
 }
 
 /// Call an arbitrary registered SQL function by name.
