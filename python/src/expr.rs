@@ -159,10 +159,6 @@ pub fn expr_lit(value: Bound<'_, PyAny>) -> PyResult<PyExpr> {
     if let Ok(s) = value.extract::<String>() {
         return Ok(PyExpr(df_lit(s)));
     }
-    if let Ok(b) = value.extract::<Vec<u8>>() {
-        return Ok(PyExpr(df_lit(b)));
-    }
-
     // Handle Decimal by converting to string to preserve precision
     // We check if it's a decimal.Decimal instance
     let type_name = value.get_type().name()?;
@@ -176,7 +172,7 @@ pub fn expr_lit(value: Bound<'_, PyAny>) -> PyResult<PyExpr> {
     }
 
     Err(PyValueError::new_err(format!(
-        "unsupported literal type: {}. Supported: bool, int, float, str, bytes, Decimal",
+        "unsupported literal type: {}. Supported: bool, int, float, str, Decimal",
         type_name
     )))
 }

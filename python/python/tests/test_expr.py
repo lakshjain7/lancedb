@@ -3,12 +3,14 @@
 
 """Tests for the type-safe expression builder API."""
 
-import pytest
-import pyarrow as pa
-import lancedb
-from lancedb.expr import Expr, col, lit, func
-from datetime import date, datetime, timezone, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+
+import pyarrow as pa
+import pytest
+
+import lancedb
+from lancedb.expr import Expr, col, func, lit
 
 
 # ── unit tests for Expr construction ─────────────────────────────────────────
@@ -67,7 +69,6 @@ class TestExprConstruction:
         e = lit(dt)
         # Should include the offset
         assert "+05:00" in e.to_sql()
-
 
     def test_lit_decimal_precision(self):
         # High precision Decimal that would be rounded if converted to float
@@ -522,4 +523,3 @@ class TestExtendedTypeIntegration:
         result = table.search().where(col("val") < lit(val2)).to_arrow()
         assert result.num_rows == 1
         assert result["val"][0].as_py() == val1
-

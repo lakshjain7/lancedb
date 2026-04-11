@@ -19,15 +19,13 @@ operators::
 
 from __future__ import annotations
 
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Union
 
 import pyarrow as pa
 
 from lancedb._lancedb import PyExpr, expr_col, expr_lit, expr_func
-
-from datetime import date, datetime
-
-from decimal import Decimal
 
 __all__ = ["Expr", "col", "lit", "func"]
 
@@ -287,16 +285,6 @@ def lit(value: Union[bool, int, float, str, date, datetime, Decimal]) -> Expr:
     >>> from lancedb.expr import col, lit
     >>> col("price") * lit(1.1)
     Expr((price * 1.1))
-
-    >>> from datetime import date
-    >>> col("created_at") == lit(date(2024, 1, 1))
-    Expr((created_at = '2024-01-01'))
-
-
-    >>> from decimal import Decimal
-    >>> col("price") > lit(Decimal("9.99"))
-    Expr((price > '9.99'))
-
     """
 
     # Normalize dates/datetimes to ISO strings for stable SQL parsing
