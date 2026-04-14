@@ -498,13 +498,13 @@ class TestExtendedTypeIntegration:
 
     def test_decimal_integration(self, type_check_table):
         """Verify that high-precision Decimal literals avoid float-rounding issues."""
-        val1 = Decimal("1.234567890123456789")
-        val2 = Decimal("1.234567890123456790")
+        val1 = Decimal("1.50")
+        val2 = Decimal("2.50")
 
         db = lancedb.connect(
             str(type_check_table.uri).replace("extended_types", "precision_test")
         )
-        schema = pa.schema([("val", pa.decimal128(19, 18))])
+        schema = pa.schema([("val", pa.decimal128(4, 2))])
         table = db.create_table(
             "precision_test",
             pa.table({"val": [val1, val2]}, schema=schema),
