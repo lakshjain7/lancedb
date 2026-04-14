@@ -286,6 +286,8 @@ def lit(value: Union[bool, int, float, str, bytes, date, datetime, Decimal]) -> 
     >>> col("price") * lit(1.1)
     Expr((price * 1.1))
     """
+    if not isinstance(value, (bool, int, float, str, bytes, date, datetime, Decimal)):
+        raise TypeError(f"Unsupported literal type: {type(value).__name__}")
 
     return Expr(expr_lit(value))
 

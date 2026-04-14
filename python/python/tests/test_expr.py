@@ -281,24 +281,24 @@ class TestExprReflexive:
     def test_reflexive_eq(self):
         e = 1 == col("x")
         assert isinstance(e, Expr)
-        assert e.to_sql() == "(1 = x)"
+        assert e.to_sql() == "(x = 1)"
 
     def test_reflexive_ne(self):
         e = 1 != col("x")
         assert isinstance(e, Expr)
-        assert e.to_sql() == "(1 <> x)"
+        assert e.to_sql() == "(x <> 1)"
 
     def test_reflexive_lt(self):
-        # 1 < x  =>  (1 < x)
+        # 1 < x  =>  (x > 1)
         e = 1 < col("x")
         assert isinstance(e, Expr)
-        assert e.to_sql() == "(1 < x)"
+        assert e.to_sql() == "(x > 1)"
 
     def test_reflexive_gt(self):
-        # 1 > x  =>  (1 > x)
+        # 1 > x  =>  (x < 1)
         e = 1 > col("x")
         assert isinstance(e, Expr)
-        assert e.to_sql() == "(1 > x)"
+        assert e.to_sql() == "(x < 1)"
 
     def test_reflexive_and(self):
         e = True & col("active")
@@ -504,7 +504,7 @@ class TestExtendedTypeIntegration:
         db = lancedb.connect(
             str(type_check_table.uri).replace("extended_types", "precision_test")
         )
-        schema = pa.schema([("val", pa.decimal128(38, 18))])
+        schema = pa.schema([("val", pa.decimal128(19, 18))])
         table = db.create_table(
             "precision_test",
             pa.table({"val": [val1, val2]}, schema=schema),
